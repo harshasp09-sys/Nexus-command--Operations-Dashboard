@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEREBRO // S.H.I.E.L.D. TACTICAL COMMAND CENTER</title>
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Leaflet.js Tactical Mapping Engine -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Chart.js CDN for Stacked Threat Trend Bar Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- ========================================================
+       TOP COMMAND BAR & NAVIGATION
+       ======================================================== -->
+  <header class="cerebro-top-bar">
+    <div class="top-bar-inner">
+      
+      <!-- Brand & Tactical Indicator -->
+      <div class="logo-brand-group">
+        <div class="cerebro-logo-badge">
+          <span class="cerebro-x-symbol">X</span>
+        </div>
+        <div class="logo-texts">
+          <h1 class="logo-main-title">CEREBRO COMMAND</h1>
+          <span class="logo-sub-tag">S.H.I.E.L.D. // MUTANT THREAT DEFENSE GRID</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs-container">
+        <button class="nav-tab-btn active" data-tab="overview">
+          <span>📊</span> Overview
+        </button>
+        <button class="nav-tab-btn" data-tab="map">
+          <span>🗺️</span> Tactical Grid
+        </button>
+        <button class="nav-tab-btn" data-tab="registry">
+          <span>🦹</span> Villain Registry
+        </button>
+        <button class="nav-tab-btn" data-tab="kanban">
+          <span>📋</span> Case Board
+        </button>
+        <button class="nav-tab-btn" data-tab="heroes">
+          <span>🦸</span> Hero Roster
+        </button>
+      </nav>
+
+      <!-- Quick Action Buttons -->
+      <div class="top-actions-group">
+        <button id="btnSimulateEmergency" class="comic-btn comic-btn-crimson" title="Simulate 911 Citizen Emergency Ticket">
+          <span>🚨</span> 911 Alert Test
+        </button>
+        <button id="btnQuickNewCase" class="comic-btn comic-btn-yellow" title="Dispatch New Incident">
+          <span>⚡</span> + New Case
+        </button>
+        <button id="btnQuickNewVillain" class="comic-btn comic-btn-blue" title="Register New Fugitive">
+          <span>🎯</span> + Villain
+        </button>
+        <button id="btnResetData" class="comic-btn-reset" title="Reset to Canonical Marvel Data">
+          🔄 Reset
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================================
+       PERSISTENT LEVEL 5 AT-LARGE THREAT BANNER
+       ======================================================== -->
+  <aside id="persistentAlertContainer" aria-live="assertive">
+    <!-- Rendered dynamically by app.js -->
+  </aside>
+
+  <!-- ========================================================
+       MAIN DASHBOARD WORKSPACE
+       ======================================================== -->
+  <main class="dashboard-main-container">
+
+    <!-- VIEW 1: OVERVIEW -->
+    <section id="view-overview" class="view-section active-view">
+      
+      <!-- Quick Stats Cards -->
+      <div class="overview-stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon-wrapper stat-icon-red">🚨</div>
+          <div class="stat-content">
+            <span class="stat-label">Active Rogues At Large</span>
+            <span class="stat-value" id="statActiveVillains">-</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon-wrapper stat-icon-gold">📂</div>
+          <div class="stat-content">
+            <span class="stat-label">Open Incident Cases</span>
+            <span class="stat-value" id="statOpenCases">-</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon-wrapper stat-icon-blue">🦸</div>
+          <div class="stat-content">
+            <span class="stat-label">Heroes Deployed</span>
+            <span class="stat-value" id="statHeroesDeployed">-</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon-wrapper stat-icon-green">🛡️</div>
+          <div class="stat-content">
+            <span class="stat-label">Contained / In Custody</span>
+            <span class="stat-value" id="statContained">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overview Body Grid: Stacked Bar Chart & Emergency Feed -->
+      <div class="overview-body-grid">
+        
+        <!-- Threat Trend Chart (Chart.js Stacked Bar) -->
+        <div class="tactical-panel">
+          <div class="tactical-panel-header">
+            <h2 class="tactical-panel-title">
+              <span>📈</span> WEEKLY INCIDENT THREAT TRENDS
+            </h2>
+            <span class="tactical-panel-badge">STACKED BY THREAT LEVEL 1-5</span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="threatTrendCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Emergency Feed & Recent Dispatch -->
+        <div class="tactical-panel">
+          <div class="tactical-panel-header">
+            <h2 class="tactical-panel-title">
+              <span>📡</span> EMERGENCY DISPATCH FEED
+            </h2>
+            <button class="comic-btn comic-btn-sm comic-btn-yellow" onclick="switchTab('map')">
+              VIEW LIVE MAP ➔
+            </button>
+          </div>
+          <div id="emergencyFeedList" class="emergency-feed-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 2: LIVE TACTICAL GRID (LEAFLET MAP & CLOSEST RESPONDER ROUTING) -->
+    <section id="view-map" class="view-section">
+      
+      <!-- Tactical HUD Control Strip -->
+      <div class="map-hud-controls">
+        <div class="map-hud-title-block">
+          <h2 class="map-hud-title"><span>🛰️</span> CEREBRO GEOSPATIAL COMMAND // NEW YORK SECTOR</h2>
+          <span class="map-hud-sub">Real-Time Proximity Routing (Haversine Algorithm) & High-Risk Geofence Surveillance</span>
+        </div>
+
+        <div class="map-hud-badges">
+          <span class="hud-pill hud-pill-red">
+            CRISES: <strong id="mapStatCrises">-</strong>
+          </span>
+          <span class="hud-pill hud-pill-purple">
+            GEOFENCE BREACHES: <strong id="mapStatBreaches">-</strong>
+          </span>
+          <button class="comic-btn comic-btn-sm comic-btn-yellow" onclick="simulateCitizenEmergency()">
+            🚨 SIMULATE 911 EMERGENCY
+          </button>
+          <button class="comic-btn comic-btn-sm comic-btn-ghost" onclick="tacticalMap && tacticalMap.setView([40.7580, -73.9855], 13)">
+            🎯 RE-CENTER
+          </button>
+        </div>
+      </div>
+
+      <!-- Tactical Theater Grid: Map on Left + Tactical Console on Right -->
+      <div class="tactical-theater-layout">
+        
+        <!-- Interactive Leaflet Map Container -->
+        <div class="map-viewport-wrapper">
+          <div id="tacticalMap" class="tactical-leaflet-container"></div>
+          
+          <!-- Tactical HUD Map Overlays -->
+          <div class="map-radar-crosshair"></div>
+          <div class="map-legend-overlay">
+            <div class="legend-item"><span class="legend-dot red-pulse"></span> Crisis Pin (Radar Ripple)</div>
+            <div class="legend-item"><span class="legend-dot blue-shield"></span> Superhero Unit</div>
+            <div class="legend-item"><span class="legend-line cyan-dash"></span> Haversine Trajectory</div>
+            <div class="legend-item"><span class="legend-zone geo-zone-a"></span> Zone Alpha (Stark Core)</div>
+            <div class="legend-item"><span class="legend-zone geo-zone-b"></span> Zone Beta (The Raft)</div>
+          </div>
+          <div class="map-hint-banner">
+            ⚡ CLICK ANYWHERE ON MAP TO DISPATCH INCIDENT AT COORDINATES • CLICK CRISIS PIN TO CALCULATE CLOSEST HERO
+          </div>
+        </div>
+
+        <!-- Right Side: Dispatch & Closest Responder Console -->
+        <div class="tactical-console-sidebar">
+          
+          <!-- Closest Responder Flash Card (Haversine & ETA) -->
+          <div class="console-box">
+            <div class="console-box-header">
+              <h3 class="console-box-title">⚡ AUTOMATED PROXIMITY DISPATCHER</h3>
+              <span class="console-sub-tag">HAVERSINE ENGINE</span>
+            </div>
+            <div id="closestResponderFlashCard">
+              <div class="empty-flash-prompt">
+                <span>SELECT ANY CRISIS PIN ON THE MAP TO CALCULATE CLOSEST HERO PROXIMITY & ETA</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Geofenced High-Risk Zones Intelligence -->
+          <div class="console-box">
+            <div class="console-box-header">
+              <h3 class="console-box-title">🛡️ GEOFENCED SECURITY ZONES</h3>
+              <span class="console-sub-tag">AUTO-ESCALATION ON</span>
+            </div>
+            <div class="geofence-cards-list">
+              <div class="geofence-mini-card zone-alpha-card">
+                <div class="geo-top">
+                  <strong>ZONE ALPHA: STARK / MIDTOWN CORE</strong>
+                  <span class="zone-badge-crit">CRITICAL</span>
+                </div>
+                <div class="geo-meta">Radius: Times Square to Stark Tower • Auto-boost: CRITICAL priority</div>
+              </div>
+              <div class="geofence-mini-card zone-beta-card">
+                <div class="geo-top">
+                  <strong>ZONE BETA: THE RAFT SUPERMAX</strong>
+                  <span class="zone-badge-omega">OMEGA CONTAINMENT</span>
+                </div>
+                <div class="geo-meta">East River Supermax • Restricted military airspace</div>
+              </div>
+              <div class="geofence-mini-card zone-gamma-card">
+                <div class="geo-top">
+                  <strong>ZONE GAMMA: CENTRAL PARK SANCTUARY</strong>
+                  <span class="zone-badge-warn">HIGH CIV-POP</span>
+                </div>
+                <div class="geo-meta">Evacuation Muster Hub • Civilian Sanctuary Zone</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Crisis Radar List -->
+          <div class="console-box">
+            <div class="console-box-header">
+              <h3 class="console-box-title">📍 ACTIVE GRID RADAR TARGETS</h3>
+              <span class="console-sub-tag">LIVE FEED</span>
+            </div>
+            <div id="tacticalCrisesList" class="tactical-crises-scroll">
+              <!-- Rendered dynamically by map.js -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- VIEW 3: VILLAIN REGISTRY -->
+    <section id="view-registry" class="view-section">
+      
+      <!-- Filter Bar -->
+      <div class="registry-controls-bar">
+        
+        <div class="search-box-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="villainSearchInput" class="comic-search-input" placeholder="Search rogues by codename, true identity, powers, location...">
+        </div>
+
+        <div class="filter-group">
+          <label for="villainStatusFilter" class="filter-label">STATUS:</label>
+          <select id="villainStatusFilter" class="comic-select">
+            <option value="all">All Containment States</option>
+            <option value="at_large">🚨 At Large (Fugitive)</option>
+            <option value="contained">🛡️ Contained (Field Custody)</option>
+            <option value="incarcerated">🔒 Incarcerated (Max Security)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="villainThreatFilter" class="filter-label">THREAT:</label>
+          <select id="villainThreatFilter" class="comic-select">
+            <option value="all">All Threat Classes</option>
+            <option value="5">Level 5 (Omega Alert)</option>
+            <option value="4">Level 4 (Severe)</option>
+            <option value="3">Level 3 (Elevated)</option>
+            <option value="2">Level 2 (Guarded)</option>
+            <option value="1">Level 1 (Low)</option>
+          </select>
+        </div>
+
+        <div class="view-toggle-btns">
+          <button id="btnViewGrid" class="toggle-btn active" title="Grid Card View">🔲 Grid</button>
+          <button id="btnViewTable" class="toggle-btn" title="Compact Table View">📑 Table</button>
+        </div>
+
+        <div id="villainMatchCount" class="match-counter-badge">- LOCATED</div>
+
+      </div>
+
+      <!-- Villain Content (Grid or Table) -->
+      <div id="villainRegistryContent">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+
+    </section>
+
+    <!-- VIEW 4: CASE BOARD (KANBAN) -->
+    <section id="view-kanban" class="view-section">
+      <div class="kanban-controls-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="font-family: var(--font-heading); font-size: 14px; color: var(--cerebro-cyan); letter-spacing: 1px;">
+          ⚡ TACTICAL WORKFLOW BOARD // DRAG CARDS TO ADVANCE STATUS
+        </div>
+        <button class="comic-btn comic-btn-sm comic-btn-yellow" onclick="openCaseEditModal()">
+          + LOG INCIDENT
+        </button>
+      </div>
+
+      <div id="kanbanBoardContainer">
+        <!-- Rendered dynamically by kanban.js -->
+      </div>
+    </section>
+
+    <!-- VIEW 5: HERO ROSTER -->
+    <section id="view-heroes" class="view-section">
+      <div style="margin-bottom: 20px;">
+        <h2 style="font-family: var(--font-comic); font-size: 28px; color: var(--xmen-gold); letter-spacing: 1.5px; text-shadow: 2px 2px 0px #000;">
+          S.H.I.E.L.D. & X-MEN OPERATIONAL ROSTER
+        </h2>
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          Review frontline mutant squad deployment status, combat specialties, and active operational assignments.
+        </p>
+      </div>
+
+      <div id="heroesGridContent">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================
+       MODALS
+       ======================================================== -->
+  
+  <!-- 1. VILLAIN DETAIL DOSSIER MODAL -->
+  <div id="villainDetailModal" class="modal-overlay">
+    <div class="modal-container modal-container-wide" id="villainDetailModalContent">
+      <!-- Injected via openVillainDetailModal -->
+    </div>
+  </div>
+
+  <!-- 2. CASE CREATE / EDIT MODAL -->
+  <div id="caseEditModal" class="modal-overlay">
+    <div class="modal-container" id="caseEditModalContent">
+      <!-- Injected via openCaseEditModal -->
+    </div>
+  </div>
+
+  <!-- 3. VILLAIN CREATE / EDIT MODAL -->
+  <div id="villainEditModal" class="modal-overlay">
+    <div class="modal-container" id="villainEditModalContent">
+      <!-- Injected via openVillainEditModal -->
+    </div>
+  </div>
+
+  <!-- ========================================================
+       COMIC TOAST NOTIFICATIONS
+       ======================================================== -->
+  <div id="toastContainer"></div>
+
+  <!-- ========================================================
+       SCRIPTS (Ordered execution)
+       ======================================================== -->
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/kanban.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
